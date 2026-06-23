@@ -1,0 +1,13 @@
+{
+  "name": "openclaw-manus-agent",
+  "version": "1.0.0",
+  "description": "Agentic OpenClaw workspace ready for Cloud",
+  "private": true,
+  "scripts": {
+    "start": "npx openclaw start",
+    "onboard": "npx openclaw onboard"
+  },
+  "dependencies": {
+    "openclaw": "latest"
+  }
+}
