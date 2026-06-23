@@ -4,7 +4,7 @@
   "description": "Agentic OpenClaw workspace ready for Cloud",
   "private": true,
   "scripts": {
-    "start": "npx openclaw start",
+    "start": "npx openclaw gateway start",
     "onboard": "npx openclaw onboard"
   },
   "dependencies": {
