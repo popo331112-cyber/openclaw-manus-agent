@@ -7,5 +7,7 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
       - key: NODE_ENV
         value: production
