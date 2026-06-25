@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { videoDownloaderSkill } from './skills/video-downloader/index.js';
+import { oracleVpsSkill } from './skills/oracle-vps/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,7 +22,26 @@ app.post('/api/chat', async (req, res) => {
         return res.status(400).json({ error: 'Message is required' });
     }
 
-    if (message.toLowerCase().includes('download') && (message.toLowerCase().includes('video') || message.includes('http'))) {
+    const msgLower = message.toLowerCase();
+
+    // Agentic Interception: Oracle VPS Management
+    if (msgLower.includes('pm2') || msgLower.includes('restart') || msgLower.includes('status') || msgLower.includes('logs') || msgLower.includes('vps')) {
+        // Simple intent extraction for demonstration. A real agent would use LLM routing.
+        let command = "pm2 status";
+        if (msgLower.includes('restart sanwal')) command = "pm2 restart sanwal-chatbot";
+        if (msgLower.includes('restart bridge')) command = "pm2 restart whatsapp-jules-bridge";
+        if (msgLower.includes('log')) command = "pm2 logs --lines 50";
+        if (msgLower.includes('python')) command = "python3 /home/ubuntu/sanwal_chatbot/connect_wa.py";
+
+        const result = await oracleVpsSkill.execute(command);
+        return res.json({
+            reply: `Maine Oracle VPS par command chala di hai:\n\n\`\`\`\n${result}\n\`\`\``,
+            toolsUsed: ['manage_oracle_vps']
+        });
+    }
+
+    // Agentic Interception: Video Downloader
+    if (msgLower.includes('download') && (msgLower.includes('video') || message.includes('http'))) {
         const urlMatch = message.match(/(https?:\/\/[^\s]+)/);
         if (urlMatch) {
             const result = await videoDownloaderSkill.execute(urlMatch[0]);
@@ -32,6 +52,7 @@ app.post('/api/chat', async (req, res) => {
         }
     }
 
+    // Normal OpenClaw execution
     try {
         const child = spawn('npx', ['openclaw', 'run', '--prompt', message], {
             env: { ...process.env, OPENAI_API_KEY: process.env.OPENAI_API_KEY }
@@ -51,7 +72,6 @@ app.post('/api/chat', async (req, res) => {
         child.on('close', (code) => {
             if (code !== 0 && !output) {
                 console.error(`Command failed with code ${code}: ${errorOutput}`);
-                // Use a non-error response for fallback to avoid client breaking
                 return res.json({
                     reply: `(Agent running in fallback mode)\nI received your task: "${message}". Please ensure OpenClaw is fully onboarded and API keys are set.`,
                     toolsUsed: ['mcporter', 'system_analysis']
@@ -80,7 +100,6 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-// Important: Provide a health check route for Render
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

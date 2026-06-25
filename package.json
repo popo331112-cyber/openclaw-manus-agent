@@ -10,7 +10,8 @@
     "onboard": "npx openclaw onboard"
   },
   "dependencies": {
-    "openclaw": "latest",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "node-ssh": "^13.2.1",
+    "openclaw": "latest"
   }
 }
