@@ -3,159 +3,374 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manus-like OpenClaw Agent</title>
+    <title>Manus AI Dashboard Clone</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; }
-        .chat-container { max-height: calc(100vh - 180px); overflow-y: auto; }
-        .message { max-width: 80%; padding: 12px 16px; border-radius: 12px; margin-bottom: 12px; line-height: 1.5; }
-        .message.user { background-color: #f3f4f6; color: #111827; align-self: flex-end; border-bottom-right-radius: 4px; margin-left: auto; }
-        .message.agent { background-color: #ffffff; color: #1f2937; border: 1px solid #e5e7eb; align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-        .message.system { font-size: 0.85rem; color: #6b7280; text-align: center; margin: 8px auto; max-width: 100%; background: none; border: none; box-shadow: none; }
-        .tool-call { font-size: 0.85rem; font-family: monospace; background: #f3f4f6; padding: 4px 8px; border-radius: 4px; margin-top: 8px; color: #4b5563; border: 1px solid #e5e7eb; }
-        .loading-dots:after { content: '.'; animation: dots 1.5s steps(5, end) infinite;}
-        @keyframes dots { 0%, 20% { color: rgba(0,0,0,0); text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0);} 40% { color: #6b7280; text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0);} 60% { text-shadow: .25em 0 0 #6b7280, .5em 0 0 rgba(0,0,0,0);} 80%, 100% { text-shadow: .25em 0 0 #6b7280, .5em 0 0 #6b7280;}}
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #fcfcfc; color: #333;}
+        .sidebar { background-color: #f7f7f8; border-right: 1px solid #eaeaea; }
+        .sidebar-item { padding: 8px 12px; margin: 4px 12px; border-radius: 8px; cursor: pointer; color: #4a4a4a; display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 500; transition: background 0.2s;}
+        .sidebar-item:hover { background-color: #efefef; }
+        .sidebar-item.active { background-color: #efefef; color: #111; }
+        
+        .main-input-wrapper { border: 1px solid #e0e0e0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-radius: 16px; background: white; transition: border 0.3s, box-shadow 0.3s;}
+        .main-input-wrapper:focus-within { border-color: #ccc; box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
+        .main-input { outline: none; resize: none; border: none; font-size: 16px; color: #333; }
+        .main-input::placeholder { color: #aaa; }
+        
+        .app-dropdown { display: none; position: absolute; bottom: 50px; left: 16px; background: white; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 260px; z-index: 50; padding: 8px 0; }
+        .app-dropdown.show { display: block; animation: fadeIn 0.2s ease-out;}
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .toggle-switch { width: 34px; height: 18px; background: #ccc; border-radius: 20px; position: relative; cursor: pointer; transition: 0.3s; }
+        .toggle-switch::after { content: ''; width: 14px; height: 14px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: 0.3s; }
+        .toggle-switch.on { background: #2563eb; }
+        .toggle-switch.on::after { left: 18px; }
+
+        .chat-area { display: none; height: calc(100vh - 140px); overflow-y: auto; padding: 20px;}
+        .message { max-width: 80%; padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; line-height: 1.5; font-size: 15px;}
+        .message.user { background-color: #f3f4f6; color: #111; margin-left: auto; border-bottom-right-radius: 4px; }
+        .message.agent { background-color: white; border: 1px solid #eee; margin-right: auto; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);}
+        
+        /* Hide scrollbar for sidebar */
+        .sidebar::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="h-screen flex flex-col items-center justify-center p-4">
+<body class="h-screen w-screen flex overflow-hidden">
 
-    <div class="w-full max-w-3xl bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex flex-col h-[90vh]">
-        
-        <!-- Header -->
-        <div class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm">A</div>
-                <div>
-                    <h1 class="font-semibold text-gray-800">Agentic Workspace</h1>
-                    <p class="text-xs text-green-600 font-medium flex items-center gap-1">
-                        <span class="w-2 h-2 rounded-full bg-green-500 block"></span> Connected to OpenClaw Backend
-                    </p>
+    <!-- Left Sidebar -->
+    <div class="sidebar w-64 h-full flex flex-col justify-between py-4">
+        <div>
+            <!-- Logo -->
+            <div class="px-6 mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-hand-sparkles text-xl"></i>
+                <span class="font-bold text-lg tracking-tight">manus</span>
+                <div class="ml-auto flex gap-3 text-gray-500">
+                    <i class="fa-solid fa-magnifying-glass cursor-pointer hover:text-gray-800"></i>
+                    <i class="fa-regular fa-folder cursor-pointer hover:text-gray-800"></i>
                 </div>
             </div>
-            <button id="clearChat" class="text-xs text-gray-500 hover:text-gray-700 font-medium">Clear Chat</button>
+
+            <!-- Navigation -->
+            <div class="sidebar-item" id="nav-new-task" onclick="showHome()">
+                <i class="fa-regular fa-pen-to-square w-5"></i> New task
+            </div>
+            <div class="sidebar-item">
+                <i class="fa-solid fa-robot w-5"></i> Agent
+            </div>
+            <div class="sidebar-item bg-gray-100 text-gray-900 font-semibold">
+                <i class="fa-solid fa-plug w-5"></i> Plugins
+            </div>
+            <div class="sidebar-item">
+                <i class="fa-regular fa-clock w-5"></i> Scheduled
+            </div>
+            <div class="sidebar-item">
+                <i class="fa-solid fa-book w-5"></i> Library
+            </div>
+
+            <!-- Projects -->
+            <div class="mt-6 px-4 flex justify-between items-center text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <span>Projects</span>
+                <i class="fa-solid fa-plus cursor-pointer hover:text-gray-600"></i>
+            </div>
+            <div class="sidebar-item">
+                <i class="fa-regular fa-folder w-5"></i> New project
+            </div>
+
+            <!-- Tasks History -->
+            <div class="mt-6 px-4 flex justify-between items-center text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <span>Tasks</span>
+                <i class="fa-solid fa-filter cursor-pointer hover:text-gray-600"></i>
+            </div>
+            <div class="overflow-y-auto max-h-48 px-2" id="taskHistory">
+                <!-- Dynamically populated -->
+            </div>
         </div>
 
-        <!-- Chat Area -->
-        <div id="chatBox" class="flex-1 chat-container p-6 flex flex-col">
-            <div class="message system">Agent is ready. What do you want me to do?</div>
-        </div>
-
-        <!-- Input Area -->
-        <div class="p-4 bg-white border-t border-gray-200">
-            <form id="chatForm" class="relative">
-                <textarea 
-                    id="userInput" 
-                    rows="2" 
-                    class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-3 pr-12 resize-none" 
-                    placeholder="Ask the agent to perform a task..."
-                    required
-                ></textarea>
-                <button type="submit" id="sendBtn" class="absolute right-2 bottom-2 p-2 text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm">
-                    <svg class="w-4 h-4 rotate-90" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 18 20">
-                        <path d="m17.914 18.594-8-18a1 1 0 0 0-1.828 0l-8 18a1 1 0 0 0 1.157 1.376L8 18.281V9a1 1 0 0 1 2 0v9.281l6.758 1.689a1 1 0 0 0 1.156-1.376Z"/>
-                    </svg>
-                </button>
-            </form>
-            <div class="text-center mt-2">
-                <span class="text-[10px] text-gray-400">Powered by OpenClaw Agent Runtime</span>
+        <!-- User Profile -->
+        <div class="px-4 mt-auto">
+            <div class="flex items-center gap-2 p-2 hover:bg-gray-200 rounded-lg cursor-pointer">
+                <div class="w-7 h-7 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">Po</div>
+                <span class="font-medium text-sm text-gray-700 truncate">Po Po</span>
             </div>
         </div>
     </div>
 
-    <script>
-        const chatBox = document.getElementById('chatBox');
-        const chatForm = document.getElementById('chatForm');
-        const userInput = document.getElementById('userInput');
-        const sendBtn = document.getElementById('sendBtn');
+    <!-- Main Content Area -->
+    <div class="flex-1 h-full flex flex-col relative bg-white">
+        
+        <!-- Top Bar -->
+        <div class="h-14 border-b border-gray-100 flex items-center justify-between px-6">
+            <div class="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                Manus 1.6 Lite <i class="fa-solid fa-chevron-down text-xs text-gray-400"></i>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-xs bg-gray-100 px-3 py-1.5 rounded-full flex gap-2 text-gray-500 font-medium">
+                    <span>Free plan</span> <span class="text-blue-500 cursor-pointer">Upgrade</span>
+                </div>
+                <div class="flex items-center gap-1 text-sm text-gray-600 border border-gray-200 px-2 py-1 rounded-md">
+                    <i class="fa-regular fa-star"></i> 48
+                </div>
+            </div>
+        </div>
 
-        // Handle Enter key for textarea
-        userInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                chatForm.dispatchEvent(new Event('submit'));
+        <!-- Home Screen (What can I do for you?) -->
+        <div id="homeScreen" class="flex-1 flex flex-col items-center justify-center px-4 -mt-20">
+            <h1 class="text-4xl font-serif text-gray-800 mb-10 tracking-tight" style="font-family: Georgia, serif;">What can I do for you?</h1>
+            
+            <div class="w-full max-w-3xl relative">
+                <!-- Main Input Wrapper -->
+                <div class="main-input-wrapper p-4 flex flex-col relative z-20 bg-white">
+                    <textarea id="taskInput" rows="2" class="main-input w-full bg-transparent" placeholder="Assign a task or ask anything"></textarea>
+                    
+                    <div class="flex items-center justify-between mt-3 pt-2">
+                        <div class="flex items-center gap-2 relative">
+                            <!-- Connectors Button -->
+                            <button id="addConnectorBtn" class="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition">
+                                <i class="fa-solid fa-plus text-sm"></i>
+                            </button>
+                            <!-- Fake Connector Icons -->
+                            <div class="flex -space-x-1">
+                                <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" class="w-6 h-6 rounded-full border border-white bg-white">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Gmail2020.logo.png/512px-Gmail2020.logo.png" class="w-6 h-6 rounded-full border border-white bg-white p-0.5">
+                                <div class="w-6 h-6 rounded-full border border-white bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-600">+7</div>
+                            </div>
+                            <button class="ml-2 text-gray-400 hover:text-gray-600"><i class="fa-solid fa-desktop"></i></button>
+
+                            <!-- Apps Dropdown -->
+                            <div id="appDropdown" class="app-dropdown">
+                                <div class="px-4 py-2 flex items-center justify-between hover:bg-gray-50 cursor-pointer">
+                                    <div class="flex items-center gap-3"><i class="fa-solid fa-pen-nib text-blue-500 w-4"></i> <span class="text-sm font-medium">Canva</span></div>
+                                    <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
+                                </div>
+                                <div class="px-4 py-2 flex items-center justify-between hover:bg-gray-50 cursor-pointer">
+                                    <div class="flex items-center gap-3"><i class="fa-brands fa-github text-gray-800 w-4"></i> <span class="text-sm font-medium">GitHub</span></div>
+                                    <div class="text-xs text-gray-400">0 <i class="fa-solid fa-chevron-right ml-1"></i></div>
+                                </div>
+                                <div class="px-4 py-2 flex items-center justify-between hover:bg-gray-50 cursor-pointer">
+                                    <div class="flex items-center gap-3"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Gmail2020.logo.png/512px-Gmail2020.logo.png" class="w-4 h-4"> <span class="text-sm font-medium">Gmail</span></div>
+                                    <div class="text-xs text-gray-400">0 <i class="fa-solid fa-chevron-right ml-1"></i></div>
+                                </div>
+                                <div class="px-4 py-2 flex items-center justify-between hover:bg-gray-50 cursor-pointer">
+                                    <div class="flex items-center gap-3"><i class="fa-brands fa-google-drive text-green-500 w-4"></i> <span class="text-sm font-medium">Google Drive</span></div>
+                                    <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
+                                </div>
+                                <div class="px-4 py-2 flex items-center justify-between hover:bg-gray-50 cursor-pointer">
+                                    <div class="flex items-center gap-3"><i class="fa-solid fa-video text-red-500 w-4"></i> <span class="text-sm font-medium">Video Downloader</span></div>
+                                    <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
+                                </div>
+                                <div class="border-t border-gray-100 my-1"></div>
+                                <div class="px-4 py-2 flex items-center gap-3 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer">
+                                    <i class="fa-solid fa-plus w-4 text-center"></i> Add connectors
+                                </div>
+                                <div class="px-4 py-2 flex items-center gap-3 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer">
+                                    <i class="fa-solid fa-sliders w-4 text-center"></i> Manage connectors
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button class="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center"><i class="fa-solid fa-headphones"></i></button>
+                            <button class="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center"><i class="fa-solid fa-microphone"></i></button>
+                            <button id="submitTaskBtn" class="bg-gray-100 text-gray-400 hover:bg-black hover:text-white transition w-8 h-8 rounded-full flex items-center justify-center">
+                                <i class="fa-solid fa-arrow-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Suggestion Pills -->
+                <div class="flex gap-2 justify-center mt-6 flex-wrap">
+                    <div class="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm text-gray-600 cursor-pointer hover:bg-gray-50 transition shadow-sm">Develop desktop apps</div>
+                    <div class="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm text-gray-600 cursor-pointer hover:bg-gray-50 transition shadow-sm"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Design</div>
+                    <div class="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm text-gray-600 cursor-pointer hover:bg-gray-50 transition shadow-sm">More</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Task Screen (Chat) -->
+        <div id="activeTaskScreen" class="hidden flex-1 flex flex-col">
+            <div id="chatArea" class="chat-area flex-1">
+                <!-- Chat messages go here -->
+            </div>
+            
+            <!-- Sticky Bottom Input -->
+            <div class="p-4 bg-white border-t border-gray-100 flex justify-center">
+                <div class="main-input-wrapper p-3 flex w-full max-w-4xl relative z-20 bg-white items-center">
+                    <button id="chatAddConnectorBtn" class="text-gray-400 hover:text-gray-600 w-8 flex justify-center"><i class="fa-solid fa-plus"></i></button>
+                    <textarea id="chatInput" rows="1" class="main-input flex-1 bg-transparent px-3" placeholder="Message Manus..." style="line-height: 24px; max-height: 120px;"></textarea>
+                    <button id="chatSubmitBtn" class="bg-black text-white w-8 h-8 rounded-full flex items-center justify-center ml-2">
+                        <i class="fa-solid fa-arrow-up"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Script to handle UI and API -->
+    <script>
+        // Dropdown toggle logic
+        const addConnectorBtn = document.getElementById('addConnectorBtn');
+        const chatAddConnectorBtn = document.getElementById('chatAddConnectorBtn');
+        const appDropdown = document.getElementById('appDropdown');
+
+        function toggleDropdown(e) {
+            e.stopPropagation();
+            appDropdown.classList.toggle('show');
+            // If called from chat bottom input, position it differently
+            if(e.currentTarget === chatAddConnectorBtn) {
+                appDropdown.style.bottom = '70px';
+                appDropdown.style.left = 'auto';
+                appDropdown.style.marginLeft = '16px';
+            } else {
+                appDropdown.style.bottom = '50px';
+                appDropdown.style.left = '16px';
+                appDropdown.style.marginLeft = '0';
+            }
+        }
+
+        addConnectorBtn.addEventListener('click', toggleDropdown);
+        chatAddConnectorBtn.addEventListener('click', toggleDropdown);
+        
+        document.addEventListener('click', (e) => {
+            if (!appDropdown.contains(e.target) && e.target !== addConnectorBtn && e.target !== chatAddConnectorBtn) {
+                appDropdown.classList.remove('show');
             }
         });
 
-        chatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const text = userInput.value.trim();
-            if (!text) return;
+        // View switching logic
+        const homeScreen = document.getElementById('homeScreen');
+        const activeTaskScreen = document.getElementById('activeTaskScreen');
+        const chatArea = document.getElementById('chatArea');
+        const taskHistory = document.getElementById('taskHistory');
+        
+        const taskInput = document.getElementById('taskInput');
+        const chatInput = document.getElementById('chatInput');
+        const submitTaskBtn = document.getElementById('submitTaskBtn');
+        const chatSubmitBtn = document.getElementById('chatSubmitBtn');
 
-            // Add User message
-            appendMessage(text, 'user');
-            userInput.value = '';
+        function showHome() {
+            homeScreen.classList.remove('hidden');
+            homeScreen.classList.add('flex');
+            activeTaskScreen.classList.add('hidden');
+            activeTaskScreen.classList.remove('flex');
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            document.getElementById('nav-new-task').classList.add('active');
+        }
+
+        function showChat() {
+            homeScreen.classList.add('hidden');
+            homeScreen.classList.remove('flex');
+            activeTaskScreen.classList.remove('hidden');
+            activeTaskScreen.classList.add('flex');
+            chatArea.style.display = 'block';
+        }
+
+        // Handle auto-resize textareas
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight < 120 ? textarea.scrollHeight : 120) + 'px';
             
-            // Disable input while processing
-            userInput.disabled = true;
-            sendBtn.disabled = true;
+            // Enable/disable submit button color based on text
+            const btn = textarea.id === 'taskInput' ? submitTaskBtn : chatSubmitBtn;
+            if(textarea.value.trim().length > 0) {
+                btn.classList.add('bg-black', 'text-white');
+                btn.classList.remove('bg-gray-100', 'text-gray-400');
+            } else {
+                btn.classList.remove('bg-black', 'text-white');
+                btn.classList.add('bg-gray-100', 'text-gray-400');
+            }
+        }
+        taskInput.addEventListener('input', () => autoResize(taskInput));
+        chatInput.addEventListener('input', () => autoResize(chatInput));
 
-            // Add loading indicator
+        // Submit logic
+        async function submitTask(text) {
+            if (!text) return;
+            
+            showChat();
+            appendMessage(text, 'user');
+            
+            // Add to history sidebar
+            const historyItem = document.createElement('div');
+            historyItem.className = 'py-2 px-3 text-sm text-gray-600 truncate hover:bg-gray-200 rounded-md cursor-pointer mb-1';
+            historyItem.innerText = text;
+            taskHistory.prepend(historyItem);
+
+            // Show Thinking...
             const loadingId = 'loading-' + Date.now();
-            const loadingDiv = document.createElement('div');
-            loadingDiv.id = loadingId;
-            loadingDiv.className = 'message agent';
-            loadingDiv.innerHTML = '<span class="text-gray-500 font-medium">Thinking<span class="loading-dots"></span></span>';
-            chatBox.appendChild(loadingDiv);
-            scrollToBottom();
+            appendLoading(loadingId);
 
             try {
-                // Call our Express proxy endpoint
+                // Call actual OpenClaw proxy backend
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: text })
                 });
-
-                const data = await response.json();
                 
-                // Remove loading
+                const data = await response.json();
                 document.getElementById(loadingId).remove();
-
+                
                 if (response.ok) {
                     appendMessage(data.reply, 'agent', data.toolsUsed);
                 } else {
-                    appendMessage('Error: ' + (data.error || 'Failed to get response'), 'system');
+                    appendMessage('System encountered an error connecting to OpenClaw.', 'agent');
                 }
-            } catch (error) {
+            } catch (err) {
                 document.getElementById(loadingId).remove();
-                appendMessage('Connection error: Make sure the server is running.', 'system');
-            } finally {
-                userInput.disabled = false;
-                sendBtn.disabled = false;
-                userInput.focus();
-                scrollToBottom();
+                appendMessage('Connection failed. Please ensure the backend server is running.', 'agent');
             }
-        });
+        }
 
-        document.getElementById('clearChat').addEventListener('click', () => {
-            chatBox.innerHTML = '<div class="message system">Chat cleared. Ready for new tasks.</div>';
-        });
+        submitTaskBtn.addEventListener('click', () => { submitTask(taskInput.value.trim()); taskInput.value = ''; });
+        chatSubmitBtn.addEventListener('click', () => { submitTask(chatInput.value.trim()); chatInput.value = ''; });
 
-        function appendMessage(text, sender, toolsUsed = []) {
-            const div = document.createElement('div');
-            div.className = `message ${sender}`;
+        taskInput.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitTask(taskInput.value.trim()); taskInput.value = ''; }});
+        chatInput.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitTask(chatInput.value.trim()); chatInput.value = ''; }});
+
+
+        function appendMessage(text, type, tools = []) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex ${type === 'user' ? 'justify-end' : 'justify-start'}`;
             
-            // Handle newlines in text
-            let contentHtml = text.replace(/\n/g, '<br>');
+            const msg = document.createElement('div');
+            msg.className = `message ${type}`;
             
-            if (sender === 'agent' && toolsUsed && toolsUsed.length > 0) {
-                let toolsHtml = '<div class="mt-3 pt-2 border-t border-gray-100">';
-                toolsHtml += '<div class="text-xs font-semibold text-gray-500 mb-1">Tools Executed:</div>';
-                toolsUsed.forEach(tool => {
-                    toolsHtml += `<div class="tool-call">⚙️ ${tool}</div>`;
+            let html = text.replace(/\n/g, '<br>');
+            
+            if (tools && tools.length > 0) {
+                html += `<div class="mt-3 pt-3 border-t border-gray-100">
+                            <div class="text-xs text-gray-500 font-semibold mb-2 flex items-center gap-1"><i class="fa-solid fa-gears"></i> Tools used by Agent</div>`;
+                tools.forEach(t => {
+                    html += `<div class="inline-block bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-xs font-mono text-gray-600 mr-2 mb-2"><i class="fa-solid fa-check text-green-500 mr-1"></i> ${t}</div>`;
                 });
-                toolsHtml += '</div>';
-                contentHtml += toolsHtml;
+                html += `</div>`;
             }
             
-            div.innerHTML = contentHtml;
-            chatBox.appendChild(div);
-            scrollToBottom();
+            msg.innerHTML = html;
+            wrapper.appendChild(msg);
+            chatArea.appendChild(wrapper);
+            chatArea.scrollTop = chatArea.scrollHeight;
         }
 
-        function scrollToBottom() {
-            chatBox.scrollTop = chatBox.scrollHeight;
+        function appendLoading(id) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex justify-start';
+            wrapper.id = id;
+            
+            const msg = document.createElement('div');
+            msg.className = 'message agent flex items-center gap-3 text-gray-500 font-medium';
+            msg.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-blue-500"></i> Agent is thinking...';
+            
+            wrapper.appendChild(msg);
+            chatArea.appendChild(wrapper);
+            chatArea.scrollTop = chatArea.scrollHeight;
         }
+
+        // Initialize active state
+        document.getElementById('nav-new-task').classList.add('active');
     </script>
 </body>
 </html>
