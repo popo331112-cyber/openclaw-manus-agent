@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "description": "Agentic OpenClaw workspace ready for Cloud",
   "private": true,
+  "type": "module",
   "scripts": {
-    "start": "npx openclaw gateway start",
+    "start": "node server.js",
     "onboard": "npx openclaw onboard"
   },
   "dependencies": {
-    "openclaw": "latest"
+    "openclaw": "latest",
+    "express": "^4.19.2"
   }
 }
