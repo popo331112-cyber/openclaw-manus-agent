@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prestart": "mkdir -p public/downloads",
     "start": "node server.js",
     "onboard": "npx openclaw onboard"
   },

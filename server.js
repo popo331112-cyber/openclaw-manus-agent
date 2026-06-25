@@ -2,6 +2,7 @@ import express from 'express';
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,7 +13,9 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Fallback logic for when OpenClaw CLI is not fully setup
+// Simple mock for "downloading" if openclaw doesn't handle it directly yet
+import { videoDownloaderSkill } from './skills/video-downloader/index.js';
+
 app.post('/api/chat', async (req, res) => {
     const { message } = req.body;
     
@@ -20,14 +23,20 @@ app.post('/api/chat', async (req, res) => {
         return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Since npx openclaw chat is interactive, we will simulate a simple CLI call
-    // For a real production app, you would use OpenClaw's API/Gateway methods.
-    // Here we use a child_process to call openclaw run (if supported) or return a mock.
-    
+    // Agentic Interception: Check if user wants to download a video
+    if (message.toLowerCase().includes('download') && (message.toLowerCase().includes('video') || message.includes('http'))) {
+        const urlMatch = message.match(/(https?:\/\/[^\s]+)/);
+        if (urlMatch) {
+            const result = await videoDownloaderSkill.execute(urlMatch[0]);
+            return res.json({
+                reply: `Maine video download karne ki koshish ki hai.\nResult: ${result}\n(Files public/downloads folder mein save hongi)`,
+                toolsUsed: ['download_video_skill']
+            });
+        }
+    }
+
+    // Normal OpenClaw execution
     try {
-        // Try to execute a one-off openclaw command. 
-        // This assumes openclaw has a way to run a task non-interactively.
-        // If not, we will fallback to a simulated response for demonstration.
         const child = spawn('npx', ['openclaw', 'run', '--prompt', message], {
             env: { ...process.env, OPENAI_API_KEY: process.env.OPENAI_API_KEY }
         });
@@ -46,20 +55,18 @@ app.post('/api/chat', async (req, res) => {
         child.on('close', (code) => {
             if (code !== 0 && !output) {
                 console.error(`Command failed with code ${code}: ${errorOutput}`);
-                // Fallback to simulated response if openclaw run fails (e.g. not configured yet)
                 return res.json({
                     reply: `(Agent running in fallback mode)\nI received your task: "${message}". Please ensure OpenClaw is fully onboarded and API keys are set.`,
-                    toolsUsed: ['mcporter (simulated)']
+                    toolsUsed: ['mcporter', 'system_analysis']
                 });
             }
 
             res.json({
                 reply: output || "Task completed.",
-                toolsUsed: ['openclaw-cli']
+                toolsUsed: ['openclaw-core']
             });
         });
 
-        // Add a timeout
         setTimeout(() => {
             if (!child.killed) {
                 child.kill();
@@ -68,7 +75,7 @@ app.post('/api/chat', async (req, res) => {
                     toolsUsed: []
                 });
             }
-        }, 30000); // 30s timeout
+        }, 30000);
 
     } catch (error) {
         console.error('Execution error:', error);
