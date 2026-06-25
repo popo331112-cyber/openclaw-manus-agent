@@ -3,18 +3,16 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { videoDownloaderSkill } from './skills/video-downloader/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Simple mock for "downloading" if openclaw doesn't handle it directly yet
-import { videoDownloaderSkill } from './skills/video-downloader/index.js';
 
 app.post('/api/chat', async (req, res) => {
     const { message } = req.body;
@@ -23,7 +21,6 @@ app.post('/api/chat', async (req, res) => {
         return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Agentic Interception: Check if user wants to download a video
     if (message.toLowerCase().includes('download') && (message.toLowerCase().includes('video') || message.includes('http'))) {
         const urlMatch = message.match(/(https?:\/\/[^\s]+)/);
         if (urlMatch) {
@@ -35,7 +32,6 @@ app.post('/api/chat', async (req, res) => {
         }
     }
 
-    // Normal OpenClaw execution
     try {
         const child = spawn('npx', ['openclaw', 'run', '--prompt', message], {
             env: { ...process.env, OPENAI_API_KEY: process.env.OPENAI_API_KEY }
@@ -55,6 +51,7 @@ app.post('/api/chat', async (req, res) => {
         child.on('close', (code) => {
             if (code !== 0 && !output) {
                 console.error(`Command failed with code ${code}: ${errorOutput}`);
+                // Use a non-error response for fallback to avoid client breaking
                 return res.json({
                     reply: `(Agent running in fallback mode)\nI received your task: "${message}". Please ensure OpenClaw is fully onboarded and API keys are set.`,
                     toolsUsed: ['mcporter', 'system_analysis']
@@ -83,6 +80,15 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
+// Important: Provide a health check route for Render
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Agent Web UI listening on port ${PORT}`);
 });
