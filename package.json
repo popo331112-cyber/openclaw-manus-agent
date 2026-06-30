@@ -7,7 +7,7 @@
   "scripts": {
     "prestart": "mkdir -p public/downloads",
     "start": "node server.js",
-    "onboard": "npx openclaw onboard"
+    "onboard": "npx openclaw onboard && npx openclaw skills install web_search"
   },
   "dependencies": {
     "express": "^4.19.2",
