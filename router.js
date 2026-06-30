@@ -2,7 +2,7 @@ import Groq from "groq-sdk";
 
 // Initialize Groq client
 // Uses Groq API key from environment, falling back to the one in the document if not set
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || "YOUR_GROQ_API_KEY" });
 
 export async function routeIntent(message) {
     const prompt = `
