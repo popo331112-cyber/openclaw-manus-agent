@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { videoDownloaderSkill } from './skills/video-downloader/index.js';
 import { oracleVpsSkill } from './skills/oracle-vps/index.js';
+import { routeIntent } from './router.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,17 +23,12 @@ app.post('/api/chat', async (req, res) => {
         return res.status(400).json({ error: 'Message is required' });
     }
 
-    const msgLower = message.toLowerCase();
+    // LLM Agentic Routing
+    const intent = await routeIntent(message);
+    console.log("LLM Intent Router Selected:", intent);
 
-    // Agentic Interception: Oracle VPS Management
-    if (msgLower.includes('pm2') || msgLower.includes('restart') || msgLower.includes('status') || msgLower.includes('logs') || msgLower.includes('vps')) {
-        // Simple intent extraction for demonstration. A real agent would use LLM routing.
-        let command = "pm2 status";
-        if (msgLower.includes('restart sanwal')) command = "pm2 restart sanwal-chatbot";
-        if (msgLower.includes('restart bridge')) command = "pm2 restart whatsapp-jules-bridge";
-        if (msgLower.includes('log')) command = "pm2 logs --lines 50";
-        if (msgLower.includes('python')) command = "python3 /home/ubuntu/sanwal_chatbot/connect_wa.py";
-
+    if (intent.skill === 'manage_oracle_vps') {
+        const command = intent.parameter || "pm2 status";
         const result = await oracleVpsSkill.execute(command);
         return res.json({
             reply: `Maine Oracle VPS par command chala di hai:\n\n\`\`\`\n${result}\n\`\`\``,
@@ -40,19 +36,23 @@ app.post('/api/chat', async (req, res) => {
         });
     }
 
-    // Agentic Interception: Video Downloader
-    if (msgLower.includes('download') && (msgLower.includes('video') || message.includes('http'))) {
-        const urlMatch = message.match(/(https?:\/\/[^\s]+)/);
+    if (intent.skill === 'download_video') {
+        const urlMatch = intent.parameter || message.match(/(https?:\/\/[^\s]+)/)?.[0];
         if (urlMatch) {
-            const result = await videoDownloaderSkill.execute(urlMatch[0]);
+            const result = await videoDownloaderSkill.execute(urlMatch);
             return res.json({
                 reply: `Maine video download karne ki koshish ki hai.\nResult: ${result}\n(Files public/downloads folder mein save hongi)`,
+                toolsUsed: ['download_video_skill']
+            });
+        } else {
+            return res.json({
+                reply: `Mujhe video ka link nahi mila. Barae meharbani link faraham karein.`,
                 toolsUsed: ['download_video_skill']
             });
         }
     }
 
-    // Normal OpenClaw execution
+    // Normal OpenClaw execution for 'default' and "all-rounder" tasks
     try {
         const child = spawn('npx', ['openclaw', 'run', '--prompt', message], {
             env: { ...process.env, OPENAI_API_KEY: process.env.OPENAI_API_KEY }
