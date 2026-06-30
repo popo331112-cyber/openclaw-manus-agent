@@ -54,7 +54,7 @@ app.post('/api/chat', async (req, res) => {
 
     // Normal OpenClaw execution for 'default' and "all-rounder" tasks
     try {
-        const child = spawn('npx', ['openclaw', 'run', '--prompt', message], {
+        const child = spawn('npx', ['openclaw', 'agent', '--message', message], {
             env: { ...process.env, OPENAI_API_KEY: process.env.OPENAI_API_KEY }
         });
 
